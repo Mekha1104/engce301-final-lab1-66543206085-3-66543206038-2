@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 Log Dashboard — Final Lab</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #e2e8f0; --muted: #94a3b8;
+      --blue: #3b82f6; --green: #22c55e; --yellow: #f59e0b;
+      --red: #ef4444; --purple: #a855f7;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    .header { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; }
+    .header h1 { font-size:1.2rem; font-weight:700; }
+    .header a  { color:var(--blue); font-size:.85rem; text-decoration:none; }
+    .container { max-width:1400px; margin:0 auto; padding:1.5rem; }
+
+    /* Stats */
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+    .stat-label { color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }
+    .stat-value { font-size:1.75rem; font-weight:700; margin-top:.25rem; }
+
+    /* Filter bar */
+    .filter-bar { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .filter-bar input, .filter-bar select {
+      background:var(--surface); border:1px solid var(--border); color:var(--text);
+      padding:.45rem .75rem; border-radius:.5rem; font-size:.85rem; outline:none;
+    }
+    .filter-bar input { flex:1; min-width:200px; }
+    .btn { padding:.45rem 1rem; border-radius:.5rem; border:none; cursor:pointer; font-size:.85rem; font-weight:600; }
+    .btn-primary { background:var(--blue); color:#fff; }
+    .btn-secondary { background:var(--surface); color:var(--text); border:1px solid var(--border); }
+
+    /* Log table */
+    .log-table { background:var(--surface); border:1px solid var(--border); border-radius:.75rem; overflow:hidden; }
+    .log-table-header { display:grid; grid-template-columns:160px 90px 70px 120px 1fr; gap:.5rem; padding:.6rem 1rem; background:#1a2d45; font-size:.72rem; color:var(--muted); font-weight:700; text-transform:uppercase; }
+    .log-row { display:grid; grid-template-columns:160px 90px 70px 120px 1fr; gap:.5rem; padding:.65rem 1rem; border-top:1px solid var(--border); font-size:.82rem; align-items:center; }
+    .log-row:hover { background:rgba(255,255,255,.03); }
+
+    /* Level badges */
+    .badge { padding:.15rem .55rem; border-radius:.3rem; font-size:.7rem; font-weight:700; }
+    .badge-INFO  { background:rgba(34,197,94,.15);  color:#4ade80; }
+    .badge-WARN  { background:rgba(245,158,11,.15); color:#fbbf24; }
+    .badge-ERROR { background:rgba(239,68,68,.15);  color:#f87171; }
+
+    .service-tag { font-size:.72rem; padding:.1rem .45rem; border-radius:.3rem; background:rgba(59,130,246,.15); color:var(--blue); }
+    .time-text   { color:var(--muted); font-size:.75rem; font-family:'Courier New',monospace; }
+    .msg-text    { color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    .empty { text-align:center; padding:3rem; color:var(--muted); }
+    .refresh-info { font-size:.75rem; color:var(--muted); text-align:right; margin-top:.5rem; }
+
+    /* Login overlay */
+    #login-overlay { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; }
+    .login-box { background:var(--surface); border:1px solid var(--border); border-radius:1rem; padding:2rem; width:340px; }
+    .login-box h2 { margin-bottom:1.25rem; font-size:1.1rem; }
+    .form-group { margin-bottom:1rem; }
+    .form-group label { display:block; font-size:.82rem; color:var(--muted); margin-bottom:.35rem; }
+    .form-group input { width:100%; background:#0f172a; border:1px solid var(--border); color:var(--text); padding:.6rem .75rem; border-radius:.5rem; font-size:.9rem; outline:none; }
+  </style>
+</head>
+<body>
+
+<!-- Login overlay (ถ้ายังไม่มี token) -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>📊 Log Dashboard Login</h2>
+    <div class="form-group">
+      <label>Email</label>
+      <input id="l-email" type="email" value="admin@lab.local">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="l-pass" type="password" value="adminpass">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="dashLogin()">เข้าสู่ระบบ</button>
+    <p id="l-err" style="color:var(--red);font-size:.82rem;margin-top:.5rem"></p>
+    <p style="margin-top:.75rem;font-size:.75rem;color:var(--muted)">ต้องใช้บัญชีที่มี JWT token อยู่แล้ว หรือ login ใหม่</p>
+  </div>
+</div>
+
+<!-- Main Dashboard -->
+<div class="header">
+  <h1>📊 Log Dashboard — Task Board Final Lab</h1>
+  <div style="display:flex;gap:1rem;align-items:center">
+    <span id="logged-as" style="font-size:.82rem;color:var(--muted)"></span>
+    <button class="btn btn-secondary" onclick="toggleAutoRefresh()" id="refresh-btn">⏸ Auto Refresh ON</button>
+    <a href="index.html">← กลับ Task Board</a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Logs</div>
+      <div class="stat-value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--green)">INFO</div>
+      <div class="stat-value" style="color:var(--green)" id="stat-info">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--yellow)">WARN</div>
+      <div class="stat-value" style="color:var(--yellow)" id="stat-warn">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--red)">ERROR</div>
+      <div class="stat-value" style="color:var(--red)" id="stat-error">—</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <input id="f-search" type="text" placeholder="🔍 ค้นหา event / message...">
+    <select id="f-service">
+      <option value="">Service: ทั้งหมด</option>
+      <option value="auth-service">auth-service</option>
+      <option value="task-service">task-service</option>
+    </select>
+    <select id="f-level">
+      <option value="">Level: ทั้งหมด</option>
+      <option value="INFO">INFO</option>
+      <option value="WARN">WARN</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadLogs()">🔄 โหลดใหม่</button>
+    <button class="btn btn-secondary" onclick="clearFilters()">✕ ล้าง Filter</button>
+  </div>
+
+  <!-- Log Table -->
+  <div class="log-table">
+    <div class="log-table-header">
+      <div>เวลา</div>
+      <div>Service</div>
+      <div>Level</div>
+      <div>Event</div>
+      <div>Message</div>
+    </div>
+    <div id="log-rows">
+      <div class="empty">⏳ กำลังโหลด...</div>
+    </div>
+  </div>
+  <p class="refresh-info" id="last-refresh"></p>
+</div>
+
+<script>
+const API = '';
+let token        = localStorage.getItem('jwt_token');
+let autoRefresh  = true;
+let refreshTimer = null;
+let allLogs      = [];
+
+// ── Login ─────────────────────────────────────────────
+async function dashLogin() {
+  const email    = document.getElementById('l-email').value.trim();
+  const password = document.getElementById('l-pass').value;
+  const res  = await fetch(`${API}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    token = data.token;
+    localStorage.setItem('jwt_token', token);
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('logged-as').textContent = `👤 ${data.user.username} (${data.user.role})`;
+    loadStats();
+    loadLogs();
+    startAutoRefresh();
+  } else {
+    document.getElementById('l-err').textContent = data.error || 'Login ล้มเหลว';
+  }
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+
+// ── Stats ─────────────────────────────────────────────
+async function loadStats() {
+  const res  = await fetch(`${API}/api/logs/stats`, { headers: authHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  const total = data.by_level.reduce((s, r) => s + parseInt(r.count), 0);
+  document.getElementById('stat-total').textContent = total;
+
+  const find = level => {
+    const r = data.by_level.find(r => r.level === level);
+    return r ? r.count : 0;
+  };
+  document.getElementById('stat-info').textContent  = find('INFO');
+  document.getElementById('stat-warn').textContent  = find('WARN');
+  document.getElementById('stat-error').textContent = find('ERROR');
+}
+
+// ── Load Logs ─────────────────────────────────────────
+async function loadLogs() {
+  const service = document.getElementById('f-service').value;
+  const level   = document.getElementById('f-level').value;
+  const search  = document.getElementById('f-search').value.trim();
+
+  const params = new URLSearchParams({ limit: 200 });
+  if (service) params.set('service', service);
+  if (level)   params.set('level',   level);
+
+  const res  = await fetch(`${API}/api/logs/?${params}`, { headers: authHeaders() });
+  if (res.status === 401) {
+    document.getElementById('login-overlay').style.display = 'flex';
+    return;
+  }
+  if (!res.ok) return;
+  const data = await res.json();
+
+  allLogs = data.logs || [];
+
+  // Client-side search filter
+  let filtered = allLogs;
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = allLogs.filter(l =>
+      (l.event   || '').toLowerCase().includes(q) ||
+      (l.message || '').toLowerCase().includes(q) ||
+      (l.service || '').toLowerCase().includes(q)
+    );
+  }
+
+  renderLogs(filtered);
+  document.getElementById('last-refresh').textContent =
+    `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} | แสดง ${filtered.length} / ${data.total} รายการ`;
+
+  loadStats();
+}
+
+// ── Render Logs ───────────────────────────────────────
+function renderLogs(logs) {
+  const container = document.getElementById('log-rows');
+  if (!logs.length) {
+    container.innerHTML = '<div class="empty">📭 ไม่พบ log ที่ตรงกับเงื่อนไข</div>';
+    return;
+  }
+  container.innerHTML = logs.map(log => {
+    const time = new Date(log.created_at).toLocaleString('th-TH', {
+      dateStyle: 'short', timeStyle: 'medium'
+    });
+    return `
+      <div class="log-row">
+        <div class="time-text">${escHtml(time)}</div>
+        <div><span class="service-tag">${escHtml(log.service)}</span></div>
+        <div><span class="badge badge-${log.level}">${log.level}</span></div>
+        <div style="font-family:'Courier New',monospace;font-size:.75rem;color:var(--purple)">${escHtml(log.event)}</div>
+        <div class="msg-text" title="${escHtml(log.message||'')}">
+          ${escHtml(log.message || '—')}
+          ${log.meta ? `<span style="color:var(--muted);font-size:.72rem"> • ${escHtml(JSON.stringify(log.meta))}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Auto Refresh ──────────────────────────────────────
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => { if (autoRefresh) loadLogs(); }, 5000);
+}
+
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  document.getElementById('refresh-btn').textContent =
+    autoRefresh ? '⏸ Auto Refresh ON' : '▶ Auto Refresh OFF';
+}
+
+function clearFilters() {
+  document.getElementById('f-service').value = '';
+  document.getElementById('f-level').value   = '';
+  document.getElementById('f-search').value  = '';
+  loadLogs();
+}
+
+// ── Init ──────────────────────────────────────────────
+if (token) {
+  (async () => {
+    const res  = await fetch(`${API}/api/auth/verify`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data.valid) {
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('logged-as').textContent =
+        `👤 ${data.user.username || data.user.email} (${data.user.role})`;
+      loadStats();
+      loadLogs();
+      startAutoRefresh();
+    }
+  })();
+}
+</script>
+</body>
+</html>
