@@ -66,22 +66,19 @@ INSERT INTO users (username, email, password_hash, role) VALUES
   (
     'alice',
     'alice@lab.local',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-    -- plain-text password: alice123
+    '$2b$10$/0W5FM8VBzWM6rdm0WeOv.qVbXcuQF9pO/n3TGkKn1hXumHh8f0Ay',
     'member'
   ),
   (
     'bob',
     'bob@lab.local',
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.',
-    -- plain-text password: bob456
+    '$2b$10$IaFcMdfSn06CabJBuB7JBOwtB76jD69As6LZluCsbILyg7c/QBIkC',
     'member'
   ),
   (
     'admin',
     'admin@lab.local',
-    '$2a$10$TbAyBo.OirXRwMvBVMGgXeuHfzaOGicB5K3jZ1WZUD/pDYdm6GS7C',
-    -- plain-text password: adminpass
+    '$2b$10$QCMNOlx/o2aYMgKpDoIxD.5it3qw7x//LcXrF.72P8Sv2U17RZFTO',
     'admin'
   )
 ON CONFLICT DO NOTHING;
